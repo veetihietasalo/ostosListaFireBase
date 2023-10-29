@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, FlatList, StyleSheet } from 'react-native';
+import { Input, Button, Text, ListItem } from 'react-native-elements';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue, push, set, remove } from 'firebase/database';
 
@@ -55,32 +56,38 @@ const App = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Product"
-          value={product}
-          onChangeText={(text) => setProduct(text)}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Amount"
-          value={amount}
-          onChangeText={(text) => setAmount(text)}
-        />
-      </View>
+      <Input
+        label="Product"
+        value={product}
+        onChangeText={(text) => setProduct(text)}
+        containerStyle={styles.inputContainer}
+      />
+      <Input
+        label="Amount"
+        value={amount}
+        onChangeText={(text) => setAmount(text)}
+        containerStyle={styles.inputContainer}
+      />
       <Button title="Save" onPress={saveItem} />
-      <Text style={styles.title}>Shopping List</Text>
+      <Text h4 style={styles.title}>Shopping List</Text>
+      <Text style={styles.hintText}>Swipe to mark as bought</Text>
       <FlatList
         data={shoppingList}
         keyExtractor={(item) => item.key}
         renderItem={({ item }) => (
-          <View style={styles.listItem}>
-            <Text style={styles.listText}>{`${item.product}, ${item.amount}`}</Text>
-            <TouchableOpacity onPress={() => deleteItem(item.key)}>
-              <Text style={styles.deleteText}>Bought</Text>
-            </TouchableOpacity>
-          </View>
+          <ListItem.Swipeable
+            rightContent={
+              <Button
+                title="Bought"
+                onPress={() => deleteItem(item.key)}
+                buttonStyle={{ minHeight: '100%', backgroundColor: 'blue' }}
+              />
+            }
+          >
+            <ListItem.Content>
+              <ListItem.Title>{`${item.product}, ${item.amount}`}</ListItem.Title>
+            </ListItem.Content>
+          </ListItem.Swipeable>
         )}
       />
     </View>
@@ -90,45 +97,21 @@ const App = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 90,
+    marginTop: 70,
+    padding: 20,
     backgroundColor: '#f8f8f8',
   },
   inputContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 20,
   },
-  input: {
-    flex: 1,
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingLeft: 8,
-    marginRight: 10,
-  },
   title: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    marginVertical: 20,
+    textAlign: 'center',
+  },
+  hintText: {
+    textAlign: 'center',
     marginBottom: 10,
-  },
-  listItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 5,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  listText: {
-    fontSize: 16,
-  },
-  deleteText: {
-    color: 'blue',
+    color: 'grey',
   },
 });
 
