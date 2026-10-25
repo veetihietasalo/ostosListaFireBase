@@ -51,13 +51,18 @@ const App = () => {
   }, []);
 
   const saveItem = () => {
+    if (!product.trim()) return;
     const newRef = push(ref(database, 'shopping_list/'));
-    set(newRef, { product, amount });
+    // The list updates locally right away, the promise only settles when the server answers.
+    set(newRef, { product: product.trim(), amount: amount.trim() })
+      .catch((error) => Alert.alert('Save failed', error.message));
+    setProduct('');
+    setAmount('');
   };
 
   const deleteItem = (key) => {
     const itemRef = ref(database, `shopping_list/${key}`);
-    remove(itemRef);
+    remove(itemRef).catch((error) => Alert.alert('Delete failed', error.message));
   };
 
   return (
