@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet } from 'react-native';
+import { View, FlatList, StyleSheet, Alert } from 'react-native';
 import { Input, Button, Text, ListItem } from 'react-native-elements';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue, push, set, remove } from 'firebase/database';
@@ -42,11 +42,12 @@ const App = () => {
 
   useEffect(() => {
     const shoppingListRef = ref(database, 'shopping_list/');
-    onValue(shoppingListRef, (snapshot) => {
+    // onValue returns the unsubscribe function, so the listener goes away with the component.
+    return onValue(shoppingListRef, (snapshot) => {
       const data = snapshot.val();
       const items = data ? Object.keys(data).map((key) => ({ key, ...data[key] })) : [];
       setShoppingList(items);
-    });
+    }, (error) => Alert.alert('Could not load the list', error.message));
   }, []);
 
   const saveItem = () => {
