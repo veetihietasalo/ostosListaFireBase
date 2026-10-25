@@ -3,8 +3,9 @@ import { View, FlatList, StyleSheet, Alert } from 'react-native';
 import { Input, Button, Text, ListItem } from 'react-native-elements';
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue, push, set, remove } from 'firebase/database';
+import localList from './localList';
 
-// Set in .env (see .env.example). Expo inlines EXPO_PUBLIC_ values into the JS bundle at build time,
+// Optional. Set in .env (see .env.example). Expo inlines EXPO_PUBLIC_ values into the JS bundle at build time,
 // so each one has to be read as process.env.EXPO_PUBLIC_..., not through a variable name.
 const env = {
   EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -16,9 +17,11 @@ const env = {
   EXPO_PUBLIC_FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Without a full config (the course project is gone) the app runs in demo mode on a local list.
 const missing = Object.keys(env).filter((name) => !env[name]);
-if (missing.length) {
-  throw new Error(`Firebase config missing: ${missing.join(', ')}. Copy .env.example to .env, fill in the web app config from the Firebase console and restart Expo with \`npx expo start --clear\`.`);
+const demoMode = missing.length > 0;
+if (demoMode && missing.length < Object.keys(env).length) {
+  console.warn(`Firebase config incomplete, missing ${missing.join(', ')}. Running in demo mode.`);
 }
 
 const firebaseConfig = {
@@ -31,42 +34,53 @@ const firebaseConfig = {
   appId: env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
+// The same three calls either way: Firebase when it's configured, the local list in demo mode.
+let listStore;
+if (demoMode) {
+  listStore = {
+    subscribe: (onData) => localList.onValue(onData),
+    add: (item) => localList.push(item),
+    remove: (key) => localList.remove(key),
+  };
+} else {
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
+  listStore = {
+    // onValue returns the unsubscribe function.
+    subscribe: (onData, onError) => onValue(ref(database, 'shopping_list/'), (snapshot) => onData(snapshot.val()), onError),
+    add: (item) => set(push(ref(database, 'shopping_list/')), item),
+    remove: (key) => remove(ref(database, `shopping_list/${key}`)),
+  };
+}
 
 const App = () => {
   const [product, setProduct] = useState('');
   const [amount, setAmount] = useState('');
   const [shoppingList, setShoppingList] = useState([]);
 
-  useEffect(() => {
-    const shoppingListRef = ref(database, 'shopping_list/');
-    // onValue returns the unsubscribe function, so the listener goes away with the component.
-    return onValue(shoppingListRef, (snapshot) => {
-      const data = snapshot.val();
-      const items = data ? Object.keys(data).map((key) => ({ key, ...data[key] })) : [];
-      setShoppingList(items);
-    }, (error) => Alert.alert('Could not load the list', error.message));
-  }, []);
+  // Returning the unsubscribe removes the listener with the component.
+  useEffect(() => listStore.subscribe((data) => {
+    const items = data ? Object.keys(data).map((key) => ({ key, ...data[key] })) : [];
+    setShoppingList(items);
+  }, (error) => Alert.alert('Could not load the list', error.message)), []);
 
   const saveItem = () => {
     if (!product.trim()) return;
-    const newRef = push(ref(database, 'shopping_list/'));
-    // The list updates locally right away, the promise only settles when the server answers.
-    set(newRef, { product: product.trim(), amount: amount.trim() })
+    // The list updates locally right away, with Firebase the promise only settles when the server answers.
+    listStore.add({ product: product.trim(), amount: amount.trim() })
       .catch((error) => Alert.alert('Save failed', error.message));
     setProduct('');
     setAmount('');
   };
 
   const deleteItem = (key) => {
-    const itemRef = ref(database, `shopping_list/${key}`);
-    remove(itemRef).catch((error) => Alert.alert('Delete failed', error.message));
+    listStore.remove(key).catch((error) => Alert.alert('Delete failed', error.message));
   };
 
   return (
     <View style={styles.container}>
+      {demoMode && <Text style={styles.demo}>Demo mode: data stays on this device.</Text>}
       <Input
         label="Product"
         value={product}
@@ -111,6 +125,12 @@ const styles = StyleSheet.create({
     marginTop: 70,
     padding: 20,
     backgroundColor: '#f8f8f8',
+  },
+  demo: {
+    textAlign: 'center',
+    color: '#b00020',
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
   inputContainer: {
     marginBottom: 20,
